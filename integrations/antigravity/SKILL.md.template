@@ -1,0 +1,19 @@
+---
+name: vitalia-{{NAME}}
+description: >
+  {{DESCRIPTION}}
+---
+<!-- SKILL.md | Vitalia Kit {{VERSION}} — gerado por install-project.sh -->
+<!-- Source: {{VITALIA_KIT_DIR}}/extensions/{{NAME}}.toml -->
+
+# Vitalia: {{NAME}}
+
+Ao acionar este comando:
+
+1. Leia o arquivo `~/.vitalia/kit/extensions/{{NAME}}.toml`
+2. Extraia o conteúdo do campo `prompt`
+3. Execute rigorosamente as instruções do campo `prompt`
+
+> As seções `[meta]`, `[hooks]`, `[tools]`, `[context]`, `[variables]` e
+> `[transport]` do arquivo `.toml` são metadados estruturados para orquestradores.
+> Como agente Antigravity, use apenas o campo `prompt`.

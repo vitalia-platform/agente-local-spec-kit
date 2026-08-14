@@ -1,0 +1,154 @@
+description = "Detecta e resolve ambiguidades no spec.md ativo. Máximo 5 perguntas, uma de cada vez, com recomendação. Integra respostas imediatamente na spec."
+
+[meta]
+version          = "0.3.0"
+hardware_profile = "lightweight"
+domain_gates     = []
+
+[hooks]
+before = []
+after  = []
+
+[tools]
+required = ["write_file", "read_file"]
+optional = []
+
+[context]
+reads  = [
+  ".vitalia/feature.json",
+  "specs/*/spec.md",
+  "specs/*/checklists/requirements.md"
+]
+writes = ["specs/*/spec.md", "specs/*/checklists/requirements.md"]
+
+[variables]
+input  = ["args", "feature_directory"]
+output = ["spec_file", "clarification_count"]
+
+[transport]
+preferred     = "redis"
+redis_key     = "vitalia:workflow:clarify"
+file_path     = ".vitalia/pipeline.json"
+session_shard = true
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+---
+
+## Propósito
+
+Detectar e resolver ambiguidades no `spec.md` ativo de forma **cirúrgica**.
+Máximo 5 perguntas, apresentadas **uma de cada vez**, com recomendação explícita.
+Cada resposta é integrada **imediatamente** na spec antes da próxima pergunta.
+
+**Quando usar**: após `/vitalia-spec-specify`, antes de `/vitalia-spec-plan`.
+
+---
+
+## Comportamento
+
+### Passo 1: Carregar artefatos
+
+- Ler `.vitalia/feature.json` → obter `feature_directory`
+- Carregar `{feature_directory}/spec.md` (obrigatório)
+- Carregar `{feature_directory}/checklists/requirements.md` (opcional)
+- Carregar `.vitalia/memory/constitution.md` (opcional)
+
+### Passo 2: Scan de ambiguidades por taxonomia
+
+Analisar a spec buscando ambiguidades em 6 categorias:
+
+| Categoria | O que buscar |
+|---|---|
+| **Escopo** | Limites imprecisos; "e outros", "entre outros", "similar a" |
+| **Dados** | Campos obrigatórios não especificados; formatos não definidos; volume ausente |
+| **UX** | "intuitivo", "simples", "fácil" sem definição operacional |
+| **Performance** | SC sem métrica numérica; "rápido", "em tempo real" sem threshold |
+| **Segurança** | "seguro", "protegido" sem especificação de nível |
+| **Terminologia** | Termos usados inconsistentemente entre seções |
+
+### Passo 3: Priorizar ambiguidades
+
+Para cada ambiguidade detectada, calcular prioridade:
+`Score = Impacto (1-5) × Incerteza (1-5)`
+
+Ordenar por score descendente. Selecionar até 5.
+
+### Passo 4: Apresentar perguntas — UMA POR VEZ
+
+Para cada ambiguidade na fila:
+
+```markdown
+## Clarificação [N/Total]: [Categoria] — [Tópico]
+
+**Contexto**: [Citar a parte ambígua da spec]
+
+**Pergunta**: [Pergunta específica e direcionada]
+
+**Minha recomendação**: [Opção recomendada com justificativa curta]
+
+**Opções**:
+| Opção | Resposta | Implicações |
+|-------|----------|-------------|
+| A (recomendada) | [...] | [...] |
+| B | [...] | [...] |
+| C | [...] | [...] |
+| Custom | Forneça sua resposta | [...] |
+
+_Responda com A, B, C ou sua resposta personalizada._
+```
+
+### Passo 5: Integrar resposta IMEDIATAMENTE
+
+Após cada resposta:
+1. Localizar a seção ambígua no `spec.md`
+2. Substituir/completar com a resposta do usuário
+3. Atualizar `checklists/requirements.md` se o item for resolvido
+4. Confirmar: "✅ Clarificação integrada. [N restantes]"
+5. Avançar para a próxima pergunta (ou encerrar se fila vazia)
+
+### Passo 6: Re-validação final
+
+Após resolver todas as clarificações:
+- Re-executar o checklist de qualidade
+- Reportar o delta: "X itens resolvidos, Y itens restantes"
+
+### Passo 7: Relatório de conclusão
+
+```
+Clarificações processadas: N/N
+
+Ambiguidades resolvidas:
+  ✅ [Categoria]: [resumo da resolução]
+  ...
+
+Spec atualizada: specs/NNN/spec.md
+Checklist atualizado: specs/NNN/checklists/requirements.md
+
+Próximo passo: /vitalia-spec-plan
+```
+
+---
+
+## Princípios
+
+- **Uma pergunta por vez** — nunca bombardear com lista de perguntas
+- **Recomendação sempre** — o usuário decide, mas o agente guia
+- **Integração imediata** — nenhuma resposta aguarda o final para ser aplicada
+- **Máximo 5** — se há mais de 5 ambiguidades, resolver as 5 de maior impacto
+- **Nunca reescrever** — apenas preencher lacunas e substituir termos vagos
+
+---
+
+## Done When
+
+- [ ] Fila de clarificações processada (máx. 5)
+- [ ] Todas as respostas integradas imediatamente na spec.md
+- [ ] Checklist re-validado e atualizado
+- [ ] Relatório de conclusão entregue
+"""

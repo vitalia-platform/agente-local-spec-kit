@@ -1,0 +1,61 @@
+description = "Avalia o código real do repositório contra spec/plan/tasks de uma feature e reconcilia o tasks.md — dogfooding do próprio pipeline SDD."
+
+[meta]
+version = "0.4.0"
+hardware_profile = "heavy"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file", "list_dir", "grep_search", "write_file"]
+optional = []
+
+[context]
+reads = ["specs/", "scripts/", "extensions/"]
+writes = ["specs/"]
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:converge"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- converge.md | Atualizado pela Spec 2.2 -->
+
+# /vitalia-converge — O Auditor SDD
+
+{{args}}
+
+---
+
+## Propósito
+
+Fazer a reconciliação (Dogfooding) do próprio kit. O comando vasculha os artefatos metodológicos (`spec.md`, `plan.md`, `tasks.md`) da feature solicitada e cruza com a realidade (arquivos de código). Seu papel é descobrir código "órfão" e tarefas marcadas falsamente como prontas.
+
+---
+
+## Comportamento
+
+1. **Leitura dos Artefatos SDD:** Localize o `spec.md`, `plan.md` e `tasks.md` da feature atual ou projeto.
+2. **Extração de FRs e Tasks:** Leia os Requisitos Funcionais (FR-xxx) e as Tarefas (T01.1, etc.).
+3. **Mapeamento e Verificação:** 
+   - Garanta que todo `FR` referenciado no `spec.md` tem uma tarefa no `tasks.md`. Reporte FRs Órfãos.
+   - Use suas ferramentas de busca/grep para encontrar arquivos novos no repositório que não estejam listados em nenhuma task. Reporte Códigos Não-Rastreados.
+   - Verifique a consistência (ex: T01.1 ou TASK-001?).
+4. **Relatório Estruturado:** Escreva para o usuário (ou gere um artefato local) com as seções obrigatórias:
+   - 📋 COVERAGE ANALYSIS
+   - 📝 SPEC → PLAN → TASKS RECONCILIATION
+   - 📁 UNTRACKED CODE DETECTION
+   - 📐 NOMENCLATURE CONSISTENCY
+5. **Correção:** Sugira ao final as modificações a serem feitas no `tasks.md` para colocar a casa em ordem.
+"""

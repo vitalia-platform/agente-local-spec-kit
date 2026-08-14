@@ -1,0 +1,93 @@
+description = "Protocolo socrático para estruturar features ou requisitos complexos antes da execução."
+
+[meta]
+version = "0.4.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file"]
+optional = ["write_file"]
+
+[context]
+reads = [".vitalia/feature.json"]
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:brainstorming"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+---
+
+<--- brainstorming.md | Atualizado em: 13-08-2026 10:16(GMT-04:00) -->
+
+# /brainstorming — Estruturação Socrática
+
+## Propósito
+
+Forçar uma pausa reflexiva antes da execução. O agente fará perguntas cruciais
+(com trade-offs e consequências) sobre arquitetura, requisitos e escala antes
+de tocar em qualquer código.
+
+## Comportamento
+
+Quando ativado, o agente segue as regras estritas da skill `core/brainstorming`:
+1. **Nenhum código é gerado no primeiro passo.**
+2. O agente analisa o pedido e identifica pontos cegos.
+3. Apresenta opções de decisão com Prós e Contras.
+4. Aguarda a definição do usuário para criar um plano.
+
+⚠️ Antes de formular as perguntas: verificar internamente afirmações sobre
+domínios externos (versões de libs, APIs, modelos, regulações). Esse processo
+não é mostrado ao usuário — as perguntas apresentadas devem ter premissas verificadas.
+
+## Exemplos
+```
+/brainstorming criar nova fase de processamento paralelo
+/brainstorming mudar a estrutura do banco de dados
+```
+
+---
+
+## Output Final (somente após o ciclo completo de perguntas e respostas)
+
+Quando o usuário tiver tomado as decisões e o agente estiver pronto para
+entregar o plano consolidado:
+
+1. Gerar arquivo `research-brainstorming.md` no diretório da feature ativa
+   (ou na raiz de `specs/` se a feature ainda não tiver diretório) contendo:
+   - Rastro de Pesquisa com as verificações feitas durante o ciclo
+   - Formato: tabela `| # | Afirmação | Verificado? | Fonte | Data |`
+   - Incluir link para o arquivo no output final
+
+2. Indicar explicitamente o próximo passo no pipeline SDD:
+   ```
+   Próximo passo obrigatório: /vitalia-spec-specify [descrição da decisão tomada]
+   ```
+   Qualquer alteração de código deve respeitar e iniciar o pipeline SDD.
+   Nunca implementar diretamente a partir do brainstorming.
+
+---
+
+<grounding_rules>
+NUNCA afirme versões de pacotes, APIs ou modelos LLM sem busca externa prévia.
+NUNCA cite URLs de memória — sempre verifique se o domínio/URL existe.
+NUNCA use "mais moderno", "melhor" ou "padrão de mercado" sem fonte verificada.
+Domínios que exigem verificação: llm_models, python_packages, external_apis,
+security_practices, regulations, cloud_services, scientific_claims.
+Ver regra completa: ~/.vitalia/kit/rules/always-on/grounding.md
+</grounding_rules>
+"""

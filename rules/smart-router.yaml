@@ -1,0 +1,104 @@
+# smart-router.yaml v0.4.0
+# 
+# Source of truth for domain → skill routing
+# Generated .md: rules/smart-router.md (via sync-constitution.py)
+# 
+# Maintain this file, not smart-router.md
+
+metadata:
+  version: "0.4.0"
+  generated: false  # Hand-maintained
+  last_updated: "2026-07-24"
+  description: "Master routing database — domain/intent patterns to skills"
+
+domains:
+  - name: "development"
+    priority: 10
+    description: "Software engineering tasks"
+    intents:
+      - pattern: "continue"
+        keywords: ["continue", "próximo passo", "next step", "keep going"]
+        skill: "coder"
+        description: "Resume implementation"
+        
+      - pattern: "pair programming"
+        keywords: ["pair", "vamos trabalhar juntos", "together", "pair program"]
+        skill: "coder"
+        mode: "pair"
+        description: "Collaborative coding session"
+        
+      - pattern: "debug"
+        keywords: ["erro", "bug", "não funciona", "error", "fix"]
+        skill: "coder"
+        description: "Debug and fix issues"
+        
+      - pattern: "code review"
+        keywords: ["revise", "review", "verifique o código", "check code"]
+        skill: "code-review"
+        description: "Review code for quality"
+        
+      - pattern: "full stack"
+        keywords: ["full stack", "arquitetura", "planeje", "architecture"]
+        skill: "conductor"
+        description: "Orchestrate complex multi-component changes"
+
+  - name: "health_science"
+    priority: 15
+    description: "Healthcare and bioscience tasks"
+    intents:
+      - pattern: "exercise physiology"
+        keywords: ["exercício", "VO₂max", "zona de treino", "HIIT", "FC"]
+        skill: "exercise-physiologist"
+        gate: "medical-gate"
+        description: "Exercise programming and physiology"
+        
+      - pattern: "nutrition"
+        keywords: ["nutrição", "dieta", "proteína", "alérgenos", "calorias"]
+        skill: "nutritionist"
+        gate: "medical-gate"
+        description: "Nutrition and dietary planning"
+        
+      - pattern: "endocrinology"
+        keywords: ["hormônio", "cortisol", "insulina", "testosterona", "tireoide"]
+        skill: "endocrinologist"
+        gate: "medical-gate"
+        description: "Endocrine system and metabolism"
+        
+      - pattern: "sleep and recovery"
+        keywords: ["sono", "REM", "insônia", "ritmo circadiano", "sleep"]
+        skill: "sleep-specialist"
+        gate: "medical-gate"
+        description: "Sleep quality and recovery optimization"
+
+  - name: "specification"
+    priority: 8
+    description: "Spec-driven development tasks"
+    intents:
+      - pattern: "specify feature"
+        keywords: ["quero criar", "preciso de", "feature de", "I want"]
+        skill: "vitalia-spec-specify"
+        description: "Write formal specification"
+        
+      - pattern: "plan implementation"
+        keywords: ["como implementar", "arquitetura para", "plan"]
+        skill: "vitalia-spec-plan"
+        description: "Create technical implementation plan"
+        
+      - pattern: "decompose tasks"
+        keywords: ["quebre em tarefas", "lista de tarefas", "breakdown"]
+        skill: "vitalia-spec-tasks"
+        description: "Break down into atomic tasks"
+
+  - name: "process"
+    priority: 5
+    description: "Process and workflow management"
+    intents:
+      - pattern: "session initialization"
+        keywords: ["onde parei", "session-start", "contexto", "comenzar"]
+        skill: "vitalia-session-start"
+        description: "Initialize session with prior context"
+        
+      - pattern: "session consolidation"
+        keywords: ["consolidar", "dashboard", "sync", "outras máquinas"]
+        skill: "vitalia-session-consolidate"
+        description: "Consolidate session and sync cloud"

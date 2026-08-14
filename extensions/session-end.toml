@@ -1,0 +1,117 @@
+description = "Encerra a sessão em 4 fases: reflexão, atualização 3-Tier, commit e shard."
+
+[meta]
+version = "0.4.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file", "write_file", "run_command"]
+optional = []
+
+[context]
+reads = [".vitalia/feature.json"]
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:session-end"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- session-end.md | Atualizado pela Spec 3.1 -->
+
+# /session-end — Encerramento de Sessão (Spec 3.1)
+
+{{args}}
+
+---
+
+## Propósito
+
+Reflexão, registro e commit local. **NÃO faz push** do repositório de contexto.
+
+---
+
+## Pipeline de Encerramento (As 4 Fases)
+
+### 🪞 Fase 1 — Reflexão (HITL)
+
+O agente deve ler o histórico desta sessão (transcript) e extrair os aprendizados, categorizando como:
+- `[KIT]` -> Melhoria para o sistema Vitalia/Agentes.
+- `[PROJETO]` -> Melhoria técnica ou de negócio para o código do projeto.
+
+Apresente um resumo para o usuário aprovar:
+```markdown
+📋 Resumo da sessão
+
+**Atividades:**
+- [item]
+- [item]
+
+**Próximo Passo (P0):**
+- [item]
+
+**Aprendizados Identificados:**
+- [KIT] [descrição]
+- [PROJETO] [descrição]
+
+✅ Aprova este resumo? Ajuste o que desejar.
+```
+
+#### 1.1 Detecção de Novos Domínios de Grounding (após aprovação do resumo)
+
+Após o usuário aprovar o resumo, verifique se algum aprendizado `[KIT]` revela:
+- Um domínio de risco externo NÃO coberto em `~/.vitalia/kit/config/grounding-domains.yaml`
+- Uma fonte autoritativa melhor para um domínio já existente
+
+Se sim, para cada domínio/fonte nova detectada:
+1. Anunciar ao usuário: `"Novo domínio de grounding identificado: [X] — adicionar ao JSONL?"`
+2. Se aprovado, fazer **append** em `.vitalia/memory/session/data/grounding-domains.jsonl`:
+```bash
+echo '{"id":"<sha256[:16] do conteúdo>","type":"new_domain","scope":null,"domain":"<nome>","description":"<desc>","authoritative_sources":["<url>"],"machine_id":"<id>","timestamp":"<DD-MM-YYYY HH:MM(GMT-04:00)>","reason":"<motivo>"}' >> .vitalia/memory/session/data/grounding-domains.jsonl
+```
+3. **NÃO decidir** global vs local aqui — decisão de scope é do `/vitalia-session-consolidate` (Passo 3.5)
+4. **NÃO editar** `grounding-domains-local.yaml` — é sempre VIEW gerada pelo motor de contexto
+
+### 🧠 Fase 2 — Atualização do Shard e Dados (JSONL/YAML)
+
+Após aprovação, atualize os arquivos em `.vitalia/memory/session/`:
+*(NÃO escreva diretamente em SESSION_STATE.md, LEARNINGS.md ou DECISIONS.md na raiz)*
+
+1. Obtenha o `machine_id` (ex: 8 primeiros chars do sha256 do hostname) e o nome da máquina.
+2. Escreva o YAML em `shards/<machine_id>.yaml`:
+```yaml
+machine: [Nome da Máquina]
+machine_id: [ID da Máquina]
+last_sync: [DD-MM-YYYY HH:MM:SS(GMT-04:00)]
+task: [Feature ativa]
+steps: [Resumo das atividades]
+status: Concluído
+p0: [Próximo passo aprovado]
+```
+3. Leia `data/machines.json`, atualize/insira a key `<machine_id>` com `name` e `last_seen`, e salve.
+4. Faça *append* (1 linha JSON) em `data/session_history.jsonl` contendo o resumo da sessão.
+
+### 📦 Fase 3 — Commit do Repositório Raiz
+
+1. Limpe / verifique a raiz: `git status`
+2. Commit: `git add . && git commit -m "chore(session): encerramento de sessão"`
+*(Lembre-se: `.vitalia/memory/session/` é ignorado no repositório raiz e não será commitado aqui).*
+
+### 🗂️ Fase 4 — Encerramento
+
+Exiba para o usuário:
+`✅ Shard local atualizado. Rode /vitalia-session-consolidate para sincronizar as memórias (learnings/decisions) e renderizar o Dashboard na nuvem.`
+"""

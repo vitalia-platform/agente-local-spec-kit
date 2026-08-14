@@ -1,0 +1,55 @@
+description = "Roteamento inteligente de intents do usuário"
+
+[meta]
+version = "0.4.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file"]
+optional = []
+
+[context]
+reads = ["{{VITALIA_KIT_DIR}}/rules/always-on/smart-router.md"]
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:route"
+file_path = ".vitalia/pipeline.json"
+session_shard = false
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- vitalia-route.md | Atualizado pela Spec 1.2 -->
+
+# /vitalia-route — Roteador de Contexto
+
+{{args}}
+
+---
+
+## Propósito
+
+Identificar a intenção do usuário a partir da linguagem natural e sugerir/acionar o comando oficial do Vitalia Kit apropriado.
+
+---
+
+## Ação
+
+1. Leia o arquivo `{{VITALIA_KIT_DIR}}/rules/always-on/smart-router.md`.
+2. Compare o input do usuário ({{args}}) com a coluna "Palavras-chave / Padrões" da tabela.
+3. Se houver correspondência, **sugira imediatamente** ao usuário que acione a Skill correspondente, por exemplo:
+   *Vejo que você deseja parear código. O comando correto para a nova arquitetura é `/pair`.*
+4. Se a intenção for muito clara, você pode usar os comandos associados para iniciar a ação.
+5. Se não houver correspondência ou o pedido for vago, inicie `/vitalia-session-start` para situar o usuário no estado do projeto.
+"""

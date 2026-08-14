@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+import os
+import argparse
+import glob
+import re
+from datetime import datetime, timedelta
+
+def get_timestamp():
+    # Retorna o timestamp no formato esperado (GMT-04:00)
+    now = datetime.utcnow() - timedelta(hours=4)
+    return now.strftime('%d-%m-%Y %H:%M:%S(GMT-04:00)')
+
+def parse_shard(filepath):
+    shard = {
+        'machine': 'Unknown',
+        'machine_id': 'Unknown',
+        'last_sync': 'Unknown',
+        'task': 'Unknown',
+        'steps': 'Unknown',
+        'status': 'Unknown',
+        'p0': 'Unknown'
+    }
+    try:
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
+        
+        current_section = None
+        for line in lines:
+            line = line.strip()
+            if line.startswith('# Shard:'):
+                match = re.search(r'# Shard: (.*) \((.*)\)', line)
+                if match:
+                    shard['machine'] = match.group(1)
+                    shard['machine_id'] = match.group(2)
+            elif line.startswith('**Último sync:**'):
+                shard['last_sync'] = line.replace('**Último sync:**', '').strip()
+            elif line.startswith('**Tarefa:**'):
+                shard['task'] = line.replace('**Tarefa:**', '').strip()
+            elif line.startswith('**Etapas:**'):
+                shard['steps'] = line.replace('**Etapas:**', '').strip()
+            elif line.startswith('**Status:**'):
+                shard['status'] = line.replace('**Status:**', '').strip()
+            elif line.startswith('## Próximo Passo (P0)'):
+                current_section = 'p0'
+                shard['p0'] = ''
+            elif current_section == 'p0' and line:
+                if not line.startswith('##'):
+                    shard['p0'] += line + ' '
+                else:
+                    current_section = None
+    except Exception as e:
+        print(f"Error parsing shard {filepath}: {e}")
+    
+    shard['p0'] = shard['p0'].strip() if shard['p0'] != 'Unknown' else 'Unknown'
+    return shard
+
+def check_staleness(last_sync_str):
+    try:
+        # Extrai DD-MM-YYYY HH:MM:SS ignorando o fuso
+        time_str = last_sync_str.split('(')[0].strip()
+        last_sync = datetime.strptime(time_str, '%d-%m-%Y %H:%M:%S')
+        now = datetime.utcnow() - timedelta(hours=4)
+        if (now - last_sync).total_seconds() > 24 * 3600:
+            return "⚠️ "
+    except:
+        pass
+    return ""
+
+def init_context(session_dir):
+    os.makedirs(session_dir, exist_ok=True)
+    os.makedirs(os.path.join(session_dir, 'shards'), exist_ok=True)
+    
+    files = {
+        'SESSION_STATE.md': f"<!-- SESSION_STATE.md | Atualizado em: {get_timestamp()} -->\n\n# Estado da Sessão\n**Feature ativa:** Nenhuma\n**P0:** Definir o escopo\n\n**Arquivos em edição:**\nNenhum\n",
+        'LEARNINGS.md': f"<!-- LEARNINGS.md | Atualizado em: {get_timestamp()} -->\n\n# Aprendizados da Sessão\n",
+        'DECISIONS.md': f"<!-- DECISIONS.md | Atualizado em: {get_timestamp()} -->\n\n# Decisões Arquiteturais\n"
+    }
+    
+    for filename, content in files.items():
+        filepath = os.path.join(session_dir, filename)
+        if not os.path.exists(filepath):
+            with open(filepath, 'w') as f:
+                f.write(content)
+            print(f"✅ Criado {filepath}")
+
+def consolidate_context(session_dir):
+    shards_dir = os.path.join(session_dir, 'shards')
+    shards = []
+    
+    for filepath in glob.glob(os.path.join(shards_dir, '*.md')):
+        shards.append(parse_shard(filepath))
+        
+    project_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(session_dir)))))
+    
+    # Render Dashboard (README.md)
+    readme_content = f"<!-- README.md | Atualizado em: {get_timestamp()} -->\n\n"
+    readme_content += f"# Dashboard de Contexto: {project_name}\n\n"
+    readme_content += "## Shards Ativos\n\n"
+    readme_content += "| Máquina | Tarefa Atual | Etapas | Status | Último Sync | Próximo Passo (P0) |\n"
+    readme_content += "| :--- | :--- | :--- | :--- | :--- | :--- |\n"
+    
+    for s in shards:
+        stale_badge = check_staleness(s['last_sync'])
+        readme_content += f"| **{s['machine']}** ({s['machine_id']}) | {s['task']} | {s['steps']} | {s['status']} | {stale_badge}{s['last_sync']} | {s['p0']} |\n"
+
+    # Extrair Learnings pendentes
+    learnings_path = os.path.join(session_dir, 'LEARNINGS.md')
+    pendings = []
+    if os.path.exists(learnings_path):
+        with open(learnings_path, 'r') as f:
+            for line in f.readlines():
+                if line.startswith('[KIT]') or line.startswith('[PROJETO]'):
+                    pendings.append(line.strip())
+                    
+    if pendings:
+        readme_content += "\n## 📝 Aprendizados Pendentes\n\n"
+        for p in pendings:
+            readme_content += f"- {p}\n"
+
+    # Criar um gráfico Mermaid simples com IDs sanitizados
+    readme_content += "\n## Arquitetura de Contexto\n\n```mermaid\ngraph TD\n"
+    readme_content += f"  Raiz[\"Repositório Raiz ({project_name})\"]\n"
+    for s in shards:
+        safe_id = s['machine_id'].replace('-', '_').replace(' ', '_')
+        safe_machine = s['machine'].replace('(', '').replace(')', '').replace('"', '')
+        readme_content += f"  {safe_id}[\"Shard: {safe_machine}\"] --> Raiz\n"
+    readme_content += "```\n"
+
+    readme_path = os.path.join(session_dir, 'README.md')
+    with open(readme_path, 'w') as f:
+        f.write(readme_content)
+    
+    print(f"✅ README.md atualizado em {readme_path}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Vitalia Context Engine")
+    parser.add_argument("--action", choices=['init', 'start', 'end', 'consolidate', 'update-shard'], required=True)
+    parser.add_argument("--session-dir", default=".vitalia/memory/session")
+    parser.add_argument("--machine-id", default="local")
+    
+    args = parser.parse_args()
+    
+    if args.action == 'init':
+        init_context(args.session_dir)
+    elif args.action == 'consolidate':
+        consolidate_context(args.session_dir)
+    elif args.action == 'update-shard':
+        # Para fins práticos na prova de conceito, delegate update shard pro agent bash
+        print("update-shard via script")
+
+if __name__ == "__main__":
+    main()
