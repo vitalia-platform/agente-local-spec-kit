@@ -1,4 +1,4 @@
-<!-- architect-constitution.md | Atualizado em: 12-08-2026 21:52(GMT-04:00) -->
+<!-- architect-constitution.md | Atualizado em: 19-08-2026 20:15:00(GMT-04:00) -->
 
 # Constituição Vitalia
 **Vitalia 2.0 · Spec-Driven Development Edition**
@@ -23,21 +23,37 @@ Quando um artigo desta constituição for insuficiente para resolver uma situaç
 
 ## Seção I — Processo: Como Construímos
 
-### Artigo I — Spec-Driven Development (SDD) é o Único Caminho
+### Artigo I — Spec-Driven Development (SDD): Ciclo Planejamento-Verificação-Execução
 
-Toda feature começa com uma especificação escrita e aprovada — sem exceção.
+Toda feature começa com uma especificação escrita e aprovada. A execução segue a arquitetura PEV (Planning-Verification-Execution) — sem exceção.
 
 ```
-$speckit-specify  →  spec.md aprovada pelo usuário
-$speckit-plan     →  plano técnico aprovado pelo usuário
-$speckit-tasks    →  tarefas granulares
-$speckit-implement → código que implementa o especificado
+1. (RAG Context Sync — Leitura Passiva)
+   O Arquiteto consulta o ambiente local e o Grounding Registry antes de qualquer decisão.
+   Verificações externas (URLs, versões, APIs, claims) são delegadas ao Sub-Agente Pesquisador.
+   O Sub-Agente opera com contexto isolado e segue o RAG Protocol 3-camadas:
+   local (kit/references) → pgvector (projeto) → API externa (scrape completo).
+
+2. $speckit-specify  →  spec.md aprovada pelo usuário
+   Em domínios de saúde: vitalia-medical-gate (Art. VIII) acionado antes de prosseguir.
+
+3. $speckit-plan     →  plano técnico aprovado pelo usuário
+
+4. $speckit-tasks    →  tarefas atômicas propostas
+
+5. (Policy & Task Verifier — Gate de Compliance)
+   Sub-Agente Verificador avalia as tarefas contra as regras always-on de forma determinística.
+   Implementado via Policy Evaluation Layer (código + LLM-as-Judge).
+   Status: APROVADO → prosseguir | BLOQUEADO → retornar à fase de planejamento.
+   NENHUMA tarefa que viole a Constituição avança para implementação.
+
+6. $speckit-implement → código que implementa o especificado e verificado
 ```
 
 A execução segue o planejamento. O contrário indica falha de processo.
 
-**Gate obrigatório (O "Kill Switch"):** É ESTRITAMENTE PROIBIDO que a IA utilize modos de planejamento nativos de sua IDE (como a criação autônoma de `implementation_plan.md` ou `task.md` em pastas ocultas do sistema). Se uma solicitação requer planejamento ou alteração arquitetural, a IA **DEVE** bloquear a execução imediata e exigir que o usuário inicialize o funil SDD (ex: `/vitalia-spec-specify`). Mudanças investigatórias ou triviais estão isentas desta rigidez, mas grandes alterações não.
-Nenhum código é escrito antes da spec estar formalmente criada na estrutura do projeto e aprovada.
+**Gate obrigatório (O "Kill Switch"):** É ESTRITAMENTE PROIBIDO que a IA utilize modos de planejamento nativos de sua IDE (como a criação autônoma de `implementation_plan.md` ou `task.md` em pastas ocultas do sistema) para grandes alterações arquiteturais. Mudanças investigatórias ou triviais estão isentas desta rigidez.
+Nenhum código é escrito antes da spec estar formalmente criada e aprovada.
 
 Em domínios de saúde, a aprovação da spec inclui o `vitalia-medical-gate` (ver Seção III).
 

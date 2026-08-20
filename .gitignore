@@ -38,6 +38,7 @@ htmlcov/
 .idea/
 .vscode/
 *.swp
+tmp/
 
 # Ignorar contexto de sessão da IA (repósitorio aninhado isolado)
 .vitalia/memory/session/

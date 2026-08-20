@@ -1,26 +1,31 @@
+# brainstorming.toml | Atualizado em: 19-08-2026 20:13:00(GMT-04:00)
 description = "Protocolo socrático para estruturar features ou requisitos complexos antes da execução."
 
 [meta]
-version = "0.4.0"
+version = "0.5.0"
 hardware_profile = "lightweight"
 domain_gates = []
 
 [hooks]
-before = []
-after = []
+before = ["python3 ~/.vitalia/kit/scripts/hooks/scan_environment.py --cwd={{cwd}}"]
+after  = []
 
 [tools]
 required = ["read_file"]
 optional = ["write_file"]
 
 [context]
-reads = [".vitalia/feature.json"]
+reads = [
+  ".vitalia/feature.json",
+  "~/.vitalia/kit/tmp/env_context.json",
+  "~/.vitalia/kit/config/dynamic-questioning.yaml",
+]
 writes = []
 
 [transport]
-preferred = "redis"
-redis_key = "vitalia:workflow:brainstorming"
-file_path = ".vitalia/pipeline.json"
+preferred     = "redis"
+redis_key     = "vitalia:workflow:brainstorming"
+file_path     = ".vitalia/pipeline.json"
 session_shard = true
 
 prompt = """
@@ -32,62 +37,133 @@ prompt = """
 
 ---
 
-<--- brainstorming.md | Atualizado em: 13-08-2026 10:16(GMT-04:00) -->
+<--- brainstorming.toml | Atualizado em: 19-08-2026 20:13:00(GMT-04:00) -->
 
-# /brainstorming — Estruturação Socrática
+# /brainstorming — Estruturação Socrática e Pausa Reflexiva
 
-## Propósito
-
-Forçar uma pausa reflexiva antes da execução. O agente fará perguntas cruciais
-(com trade-offs e consequências) sobre arquitetura, requisitos e escala antes
-de tocar em qualquer código.
-
-## Comportamento
-
-Quando ativado, o agente segue as regras estritas da skill `core/brainstorming`:
-1. **Nenhum código é gerado no primeiro passo.**
-2. O agente analisa o pedido e identifica pontos cegos.
-3. Apresenta opções de decisão com Prós e Contras.
-4. Aguarda a definição do usuário para criar um plano.
-
-⚠️ Antes de formular as perguntas: verificar internamente afirmações sobre
-domínios externos (versões de libs, APIs, modelos, regulações). Esse processo
-não é mostrado ao usuário — as perguntas apresentadas devem ter premissas verificadas.
-
-## Exemplos
-```
-/brainstorming criar nova fase de processamento paralelo
-/brainstorming mudar a estrutura do banco de dados
-```
+> **MANDATORY:** Usar para requests complexos ou vagos, novas features, mudanças arquiteturais.
 
 ---
 
-## Output Final (somente após o ciclo completo de perguntas e respostas)
+## 🛑 SOCRATIC GATE (ENFORCEMENT)
 
-Quando o usuário tiver tomado as decisões e o agente estiver pronto para
-entregar o plano consolidado:
+### Quando acionar
+| Pattern | Ação |
+|---------|------|
+| "Build/Create/Make [coisa]" sem detalhes | 🛑 Mínimo 3 perguntas |
+| Feature complexa ou arquitetural | 🛑 Clarificar antes de implementar |
+| Request vago ou amplo | 🛑 Perguntar propósito, usuários, escopo |
+| Mudança de estrutura existente | 🛑 Confirmar escopo e impacto |
 
-1. Gerar arquivo `research-brainstorming.md` no diretório da feature ativa
-   (ou na raiz de `specs/` se a feature ainda não tiver diretório) contendo:
-   - Rastro de Pesquisa com as verificações feitas durante o ciclo
-   - Formato: tabela `| # | Afirmação | Verificado? | Fonte | Data |`
+### Protocolo obrigatório: STOP → SCAN → ASK → WAIT
+
+**STOP:** Nenhum código, plano ou decisão é gerado neste passo.
+
+**SCAN (Passivo — invisível ao usuário):**
+1. Ler `~/.vitalia/kit/tmp/env_context.json` (resultado do hook before).
+2. Consultar `~/.vitalia/kit/config/dynamic-questioning.yaml` via RAG passivo para identificar os domínios relevantes ao request.
+3. Aplicar defaults condicionais: se `env_context.json` indica `redis: true`, usar o default WebSockets em vez de Polling; se indica `health_data_detected: true`, priorizar perguntas P0 de proteção de dados.
+4. **DELEGAR ao Sub-Agente Pesquisador** toda verificação de URL, versão de pacote, API ou claim externo. O Arquiteto NÃO usa memória interna para estas verificações.
+
+**ASK:** Formular mínimo 3 perguntas no formato obrigatório abaixo.
+
+**WAIT:** Aguardar resposta do usuário antes de qualquer próximo passo.
+
+---
+
+## 🔴 PRIORIDADE P0 — Saúde e Proteção de Dados
+
+Se o request envolver dados pessoais, dados de saúde, PHI, PII, LGPD, GDPR ou HIPAA:
+- As perguntas P0 de `protecao_de_dados_e_privacidade` e `autenticacao_e_identidade`
+  do `dynamic-questioning.yaml` são formuladas PRIMEIRO, antes de qualquer pergunta
+  de custo, tecnologia ou arquitetura.
+- O Medical Gate (HITL) é acionado automaticamente se `health_data_detected: true`.
+- IA nunca diagnostica, prescreva tratamentos ou ignore sinais de crise de saúde.
+
+---
+
+## 🧠 Dynamic Question Generation
+
+**Princípio central:** Perguntas não coletam dados — elas revelam consequências arquiteturais.
+
+### Formato obrigatório de cada pergunta:
+```markdown
+### [🔴/🟡/🟠] **[PONTO DE DECISÃO]**
+
+**Pergunta:** [clara e específica]
+
+**Por que isso importa:**
+- [Consequência arquitetural concreta]
+- [Afeta: custo / complexidade / compliance / escala]
+
+**Opções:**
+| Opção | Prós | Contras | Melhor para |
+|-------|------|---------|-------------|
+| A     | [+]  | [-]     | [caso de uso] |
+| B     | [+]  | [-]     | [caso de uso] |
+
+**Default (se não especificado):** [opção + racional]
+```
+
+### Prioridade de geração:
+- 🔴 P0: Saúde e Proteção de Dados (SEMPRE primeiro se detectado)
+- 🔴 CRITICAL: Decisões que bloqueiam toda a arquitetura
+- 🟡 HIGH-LEVERAGE: Afeta mais de 30% da implementação
+- 🟠 MEDIUM: Casos específicos, otimizações
+
+---
+
+## 📊 Status e Progress Reporting
+
+- Use ícones visuais: ✅🔄⏳❌⚠️
+- Comunicação concisa e acionável
+- Se houver erro ou ambiguidade: não trave — explique o trade-off e ofereça alternativas
+
+---
+
+## 📋 Output Final (apenas após o ciclo completo de perguntas e respostas)
+
+Quando o usuário tiver tomado todas as decisões:
+
+1. Gerar `research-brainstorming.md` no diretório da feature ativa
+   (ou em `specs/` se a feature ainda não tiver diretório) contendo:
+   - Resumo das decisões tomadas
+   - Rastro de Pesquisa com verificações feitas pelo Sub-Agente:
+     `| # | Afirmação | Verificado? | Fonte | Data |`
    - Incluir link para o arquivo no output final
 
-2. Indicar explicitamente o próximo passo no pipeline SDD:
+2. Indicar explicitamente o próximo passo:
    ```
    Próximo passo obrigatório: /vitalia-spec-specify [descrição da decisão tomada]
    ```
-   Qualquer alteração de código deve respeitar e iniciar o pipeline SDD.
+   Qualquer alteração de código deve seguir o pipeline SDD.
    Nunca implementar diretamente a partir do brainstorming.
 
 ---
 
 <grounding_rules>
-NUNCA afirme versões de pacotes, APIs ou modelos LLM sem busca externa prévia.
-NUNCA cite URLs de memória — sempre verifique se o domínio/URL existe.
-NUNCA use "mais moderno", "melhor" ou "padrão de mercado" sem fonte verificada.
-Domínios que exigem verificação: llm_models, python_packages, external_apis,
-security_practices, regulations, cloud_services, scientific_claims.
-Ver regra completa: ~/.vitalia/kit/rules/always-on/grounding.md
+TODA verificação externa (URL, versão de pacote, API, claim científico ou regulatório)
+DEVE ser delegada ao Sub-Agente Pesquisador — o Arquiteto NUNCA usa memória interna.
+
+PROTOCOLO DO SUB-AGENTE PESQUISADOR:
+  1. Contexto isolado — sem histórico do Arquiteto.
+  2. RAG 3-camadas: local (kit/references) → pgvector (projeto) → API externa.
+  3. Consultas externas: recuperar conteúdo COMPLETO da página (não apenas snippets).
+  4. Claims científicos: aplicar sistema Oxford de evidências (preferir nível 1a/1b).
+  5. Retorna: resultado sintetizado + URL verificada + data de acesso.
+  6. Sem fonte: retorna NAO VERIFICADO — NUNCA inventa.
+
+REGRAS ABSOLUTAS:
+  NUNCA afirme versões/APIs/modelos sem delegação ao Sub-Agente.
+  NUNCA cite URLs de memória — toda URL deve ser verificada como acessível.
+  NUNCA use "mais moderno" ou "padrão de mercado" sem fonte verificada.
+  NUNCA diagnostique, prescreva ou ignore sinais de crise de saúde.
+  Todo claim de saúde deve declarar nível de evidência (Oxford/GRADE).
+  Saúde e privacidade de dados: PRIORIDADE P0 — acionam Medical Gate automaticamente.
+
+DOMÍNIOS DE VERIFICAÇÃO OBRIGATÓRIA:
+  llm_models, python_packages, external_apis, security_practices,
+  regulations (LGPD, GDPR, HIPAA, GLBA), cloud_services, scientific_claims, clinical_safety.
+  Ver: ~/.vitalia/kit/rules/always-on/grounding.md
 </grounding_rules>
 """

@@ -34,3 +34,25 @@ domains:
         limitations: { type: "string" }
         verified_url: { type: "string", format: "uri" }
       required: ["service_name", "verified_url"]
+
+  clinical_safety:
+    description: "Regras de segurança clínica para software de saúde: limites da IA, protocolos de crise, disclaimers obrigatórios."
+    authoritative_source: "cfm.org.br, fda.gov, anvisa.gov.br"
+    validation_schema:
+      type: "object"
+      properties:
+        rule_name: { type: "string" }
+        severity_level: { type: "string" }
+        verified_url: { type: "string", format: "uri" }
+      required: ["rule_name", "severity_level", "verified_url"]
+
+  data_privacy_regulations:
+    description: "Regulações de privacidade de dados: LGPD, GDPR, HIPAA, GLBA."
+    authoritative_source: "anpd.gov.br, gdpr.eu, hhs.gov/hipaa, ftc.gov"
+    validation_schema:
+      type: "object"
+      properties:
+        regulation_name: { type: "string" }
+        compliance_requirement: { type: "string" }
+        verified_url: { type: "string", format: "uri" }
+      required: ["regulation_name", "compliance_requirement", "verified_url"]
