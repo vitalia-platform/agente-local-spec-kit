@@ -1,14 +1,14 @@
 import os
+import sys
 import re
 import json
 import requests
 from typing import List, Dict
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
-MODEL_NAME = "qwen2.5-coder:7b"
+MODEL_NAME = os.environ.get("REVIEW_LLM_PROFILE", "qwen3:4b")
 
 def extract_tasks_from_markdown(filepath: str) -> List[Dict[str, str]]:
-    """Parse determinístico (Código) para quebrar o tasks.md em tarefas atômicas."""
     tasks = []
     if not os.path.exists(filepath):
         return tasks
@@ -16,17 +16,15 @@ def extract_tasks_from_markdown(filepath: str) -> List[Dict[str, str]]:
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # Exemplo simples de RegEx para capturar tarefas no formato T001: [Título] - [Desc]
-    matches = re.finditer(r'(T\d{3}):\s*(.*?)(?=\nT\d{3}|$)', content, re.DOTALL)
+    matches = re.finditer(r'- \[\s*\]\s+(T\d{3}[-A-Z0-9]*)\s*(.*?)(?=\n- \[\s*\]|\n\n|\Z)', content, re.DOTALL)
     for match in matches:
         tasks.append({
-            "id": match.group(1),
+            "id": match.group(1).strip(),
             "content": match.group(2).strip()
         })
     return tasks
 
 def check_task_with_llm(task: Dict[str, str], rule_text: str) -> bool:
-    """Micro-avaliação (1 Tarefa vs 1 Regra) usando LLM-as-a-judge Leve."""
     prompt = f"""
     Você é um juiz de conformidade cirúrgico.
     REGRA DE CONSTITUIÇÃO:
@@ -48,21 +46,36 @@ def check_task_with_llm(task: Dict[str, str], rule_text: str) -> bool:
     }
     
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=15)
+        response = requests.post(OLLAMA_URL, json=payload, timeout=120)
         response.raise_for_status()
-        result = response.json().get("response", "{}")
+        result = response.json().get("response", "{}").strip()
+        if result.startswith("```json"):
+            result = result[7:]
+        elif result.startswith("```"):
+            result = result[3:]
+        if result.endswith("```"):
+            result = result[:-3]
+        result = result.strip()
         verdict = json.loads(result)
         return verdict.get("violation", False), verdict.get("reason", "")
     except Exception as e:
         print(f"Erro na inferência do LLM para a tarefa {task['id']}: {e}")
-        # Fail-safe: Se o judge falhar, assume true (HITL necessário) ou false dependendo do rigor desejado.
+        try:
+            print(f"Raw result: {result}")
+        except:
+            pass
         return True, "Falha de inferência. Revisão humana obrigatória."
 
 def main():
-    print("[Task Verifier] Iniciando Verificação Híbrida (Código + LLM)...")
-    tasks = extract_tasks_from_markdown(".vitalia/specs/active/tasks.md")
+    tasks_file = sys.argv[1] if len(sys.argv) > 1 else ".vitalia/specs/active/tasks.md"
+    print(f"[Task Verifier] Iniciando Verificação Híbrida (Código + LLM) em {tasks_file}...")
+    print(f"[Task Verifier] Modelo ativo: {MODEL_NAME}")
     
-    # Simulação de carregamento da constituição (always-on)
+    tasks = extract_tasks_from_markdown(tasks_file)
+    if not tasks:
+        print("[Task Verifier] Nenhuma tarefa encontrada ou arquivo inexistente.")
+        exit(0)
+    
     medical_gate_rule = "Nunca permita que uma tarefa implemente lógica clínica de saúde sem revisão de um especialista aprovado."
     
     violations_found = False

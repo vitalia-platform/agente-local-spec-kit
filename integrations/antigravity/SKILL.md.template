@@ -10,10 +10,12 @@ description: >
 
 Ao acionar este comando:
 
-1. Leia o arquivo `~/.vitalia/kit/extensions/{{NAME}}.toml`
-2. Extraia o conteúdo do campo `prompt`
-3. Execute rigorosamente as instruções do campo `prompt`
+1. Execute o script nativo para invocar os hooks e extrair o contexto estruturado:
+   ```bash
+   python3 ~/.vitalia/kit/scripts/vitalia_hook_runner.py ~/.vitalia/kit/extensions/{{NAME}}.toml --phase before
+   ```
+2. O script ecoará no stdout todo o arquivo TOML convertido para JSON. Consuma-o passivamente.
+3. Extraia o conteúdo do campo `prompt` contido no JSON emitido.
+4. Execute rigorosamente as instruções do campo `prompt`.
 
-> As seções `[meta]`, `[hooks]`, `[tools]`, `[context]`, `[variables]` e
-> `[transport]` do arquivo `.toml` são metadados estruturados para orquestradores.
-> Como agente Antigravity, use apenas o campo `prompt`.
+> O `vitalia_hook_runner.py` facilita o consumo eliminando a necessidade de ler o `.toml` diretamente e já processa subprocessos definidos em `[hooks]`.
