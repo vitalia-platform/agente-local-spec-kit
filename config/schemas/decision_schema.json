@@ -1,0 +1,8 @@
+{
+  "id": "16-char-hex-hash",
+  "type": "decision",
+  "category": "ARQUITETURA ou PROJETO",
+  "decision": "Texto da decisão arquitetural",
+  "machine_id": "8-char-hex-hash",
+  "timestamp": "DD-MM-YYYY HH:MM(GMT-04:00)"
+}

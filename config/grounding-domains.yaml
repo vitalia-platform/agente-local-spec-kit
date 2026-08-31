@@ -56,3 +56,17 @@ domains:
         compliance_requirement: { type: "string" }
         verified_url: { type: "string", format: "uri" }
       required: ["regulation_name", "compliance_requirement", "verified_url"]
+
+  llm_agent_reliability:
+    description: "Padrões de falha de LLMs em pipelines agênticos: Context Rot (dilução
+      de instruções com contexto longo), Reward Hacking (otimização do caminho mais
+      curto via RLHF), Instruction Hierarchy Collapse, e estratégias de mitigação
+      (Guardrails determinísticos, LLM-as-Judge, State Machines, Narrow Tooling)."
+    authoritative_source: "morphllm.com, mariusmanolachi.com, arxiv.org, dev.to"
+    validation_schema:
+      type: "object"
+      properties:
+        pattern_name: { type: "string" }
+        mitigation_strategy: { type: "string" }
+        verified_url: { type: "string", format: "uri" }
+      required: ["pattern_name", "verified_url"]
